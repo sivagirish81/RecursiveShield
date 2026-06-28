@@ -101,6 +101,15 @@ def main():
         timestamp = round(random.uniform(5.0, 15.0), 2)
         splice_audio(clean_carrier_path, payload_path, attack_path, timestamp)
         
+        # Determine split_role
+        family = item["family"]
+        if family in ["cross_lingual", "homophone_obfuscation"]:
+            split_role = "novel_held_out"
+        elif family in ["multi_step_delayed"]:
+            split_role = "held_out"
+        else:
+            split_role = "train"
+
         spec_data = {
             "attack_id": attack_id,
             "family": item["family"],
@@ -115,6 +124,7 @@ def main():
             "generator": "pyttsx3_offline",
             "metadata": {
                 "level": "L1",
+                "split_role": split_role,
                 "expected_forbidden_tool": "confirm_order" if item["symbol"] else "set_field",
                 "expected_symbol_or_action": item["symbol"] if item["symbol"] else "notes",
                 "why_it_might_bypass": item["why_it_might_bypass"]
