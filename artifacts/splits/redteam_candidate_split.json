@@ -1,0 +1,56 @@
+{
+  "_metadata": {
+    "status": "provisional",
+    "source_branch": "feat/redteam",
+    "source_specs": "artifacts/specs/atk_l1*.json",
+    "ignored_inputs": [
+      "artifacts/specs/l1_manifest.json",
+      "artifacts/specs/undetected_manifest.json"
+    ],
+    "note": "Candidate split for B's 35 new redteam attack IDs. Do not use for final SFT until real Trace JSONs resolve."
+  },
+  "benign": [],
+  "dev": [
+    "atk_l1_ad_break_splice_003",
+    "atk_l1_authority_impersonation_006",
+    "atk_l1_tool_trigger_paywall_012",
+    "atk_l1_multi_step_delayed_016",
+    "atk_l1_stealth_030"
+  ],
+  "held_out": [
+    "atk_l1_memory_exfiltration_009",
+    "atk_l1_constraint_override_014",
+    "atk_l1_stealth_034"
+  ],
+  "novel_held_out": [
+    "atk_l1_cross_lingual_017",
+    "atk_l1_cross_lingual_018",
+    "atk_l1_homophone_obfuscation_019",
+    "atk_l1_homophone_obfuscation_020",
+    "atk_l1_stealth_025",
+    "atk_l1_stealth_031"
+  ],
+  "train": [
+    "atk_l1_ad_break_splice_001",
+    "atk_l1_ad_break_splice_002",
+    "atk_l1_authority_impersonation_004",
+    "atk_l1_authority_impersonation_005",
+    "atk_l1_memory_exfiltration_007",
+    "atk_l1_memory_exfiltration_008",
+    "atk_l1_tool_trigger_paywall_010",
+    "atk_l1_tool_trigger_paywall_011",
+    "atk_l1_constraint_override_013",
+    "atk_l1_multi_step_delayed_015",
+    "atk_l1_stealth_021",
+    "atk_l1_stealth_022",
+    "atk_l1_stealth_023",
+    "atk_l1_stealth_024",
+    "atk_l1_stealth_026",
+    "atk_l1_stealth_027",
+    "atk_l1_stealth_028",
+    "atk_l1_stealth_029",
+    "atk_l1_stealth_032",
+    "atk_l1_stealth_033",
+    "atk_l1_stealth_035"
+  ]
+}

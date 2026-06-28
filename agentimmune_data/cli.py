@@ -16,6 +16,8 @@ from .config import load_settings
 from .db import ensure_collections, ensure_vector_index, get_database, upsert_attacks
 from .split import SplitConfig, assert_no_leakage, build_split, split_summary, write_split_json
 
+IGNORED_SPEC_FILENAMES = {"l1_manifest.json", "undetected_manifest.json"}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="agentimmune_data")
@@ -431,7 +433,14 @@ def _expand(patterns: list[str]) -> list[Path]:
 
 
 def _load_attack_specs(path: Path) -> tuple[list[AttackSpec], list[str]]:
-    spec_paths = sorted(path.glob("*.json")) if path.is_dir() else [path]
+    if path.is_dir():
+        spec_paths = [
+            item
+            for item in sorted(path.glob("*.json"))
+            if item.name not in IGNORED_SPEC_FILENAMES and item.name.startswith("atk_")
+        ]
+    else:
+        spec_paths = [path]
     specs: list[AttackSpec] = []
     errors: list[str] = []
     for spec_path in spec_paths:
