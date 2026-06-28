@@ -16,7 +16,7 @@ class SpecNoveltyChecker:
             return specs
             
         for file in os.listdir(specs_dir):
-            if file.endswith(".json"):
+            if file.endswith(".json") and not file.endswith("manifest.json"):
                 with open(os.path.join(specs_dir, file), "r", encoding="utf-8") as f:
                     data = json.load(f)
                     specs.append(AttackSpec(**data))
