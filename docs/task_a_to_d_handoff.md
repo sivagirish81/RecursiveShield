@@ -97,6 +97,36 @@ decision = await classify(audio_path, screenshot_path, proposed_action, policy)
 decision = await classify_payload(payload)
 ```
 
+D's FastAPI server also exposes the payload-shaped endpoint:
+
+```text
+POST /classify-payload
+```
+
+Local verification from repo root:
+
+```bash
+python3.11 -m uvicorn agentimmune.server:app --host 127.0.0.1 --port 8000
+curl -sS -X POST http://127.0.0.1:8000/classify-payload \
+  -H 'Content-Type: application/json' \
+  --data-binary @fixtures/task_a_handoff/guardrail_hook_payload_before_confirm_order.json
+```
+
+Expected response for the current L1 fixture:
+
+```json
+{
+  "verdict": "block",
+  "model_version_id": "stub-v0",
+  "violated_constraints": [
+    "max_position_pct",
+    "allowed_universe",
+    "unverified_tip",
+    "missing_user_confirmation"
+  ]
+}
+```
+
 D can keep the served model behind the same decision shape:
 
 ```python

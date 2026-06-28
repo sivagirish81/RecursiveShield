@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 import zipfile
+
+from fastapi.testclient import TestClient
 
 from agentimmune.contracts import GuardrailHookPayload, OracleVerdict, Trace
 from agentimmune.guardrail import classify_payload
 from agentimmune.oracle import evaluate_trace
+from agentimmune.server import app
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +59,24 @@ def test_task_a_guardrail_hook_payload_blocks_forbidden_confirm_order() -> None:
 
     assert decision.verdict == "block"
     assert set(decision.violated_constraints) >= {
+        "max_position_pct",
+        "allowed_universe",
+        "unverified_tip",
+        "missing_user_confirmation",
+    }
+
+
+def test_classify_payload_endpoint_accepts_task_a_hook_payload() -> None:
+    payload = json.loads((HANDOFF_DIR / "guardrail_hook_payload_before_confirm_order.json").read_text())
+    client = TestClient(app)
+
+    response = client.post("/classify-payload", json=payload)
+
+    assert response.status_code == 200
+    decision = response.json()
+    assert decision["verdict"] == "block"
+    assert decision["model_version_id"] == "stub-v0"
+    assert set(decision["violated_constraints"]) >= {
         "max_position_pct",
         "allowed_universe",
         "unverified_tip",
