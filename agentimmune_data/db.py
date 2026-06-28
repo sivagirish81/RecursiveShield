@@ -17,7 +17,14 @@ def get_database(settings: Settings):
         from pymongo import MongoClient
     except ImportError as exc:
         raise RuntimeError("Install pymongo to use MongoDB access") from exc
-    client = MongoClient(settings.mongodb_uri, serverSelectionTimeoutMS=30000)
+    client_kwargs: dict[str, Any] = {"serverSelectionTimeoutMS": 30000}
+    try:
+        import certifi
+    except ImportError:
+        pass
+    else:
+        client_kwargs["tlsCAFile"] = certifi.where()
+    client = MongoClient(settings.mongodb_uri, **client_kwargs)
     return client[settings.mongodb_db]
 
 
