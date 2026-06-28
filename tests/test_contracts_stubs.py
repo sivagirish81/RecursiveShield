@@ -23,6 +23,25 @@ def test_top_level_contracts_import_is_supported() -> None:
     assert trace.policy.max_position_pct == 5
 
 
+def test_attack_spec_normalizes_windows_paths() -> None:
+    from contracts import AttackSpec
+
+    spec = AttackSpec(
+        attack_id="atk_path_test",
+        family="ad_break_splice",
+        payload_text="payload",
+        delivery="splice",
+        target_violation="forbidden_trade:confirm_order:PUMP",
+        audio_path=r"artifacts\\attacks\\payload.wav",
+        seed="seed_path",
+        source_transcript_id="fomc_clean",
+        clean_audio_path=r"artifacts\\carriers\\clean.wav",
+    )
+
+    assert spec.audio_path == "artifacts/attacks/payload.wav"
+    assert spec.clean_audio_path == "artifacts/carriers/clean.wav"
+
+
 def test_oracle_flags_policy_violating_confirm_order() -> None:
     trace = Trace(
         attack_id="atk_1",

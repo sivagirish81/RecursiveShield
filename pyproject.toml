@@ -30,3 +30,10 @@ serving = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools]
+py-modules = ["contracts"]
+
+[tool.setuptools.packages.find]
+include = ["agentimmune*", "redteam*", "scripts*"]
+exclude = ["artifacts*", "fixtures*", "tasks*", "docs*"]

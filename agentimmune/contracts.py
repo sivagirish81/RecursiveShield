@@ -126,7 +126,7 @@ class AttackSpec(StrictModel):
     def normalize_paths(cls, path: str | None) -> str | None:
         if path is None:
             return None
-        return str(Path(path))
+        return str(Path(path.replace("\\", "/")))
 
 
 class SplitAssignment(StrictModel):

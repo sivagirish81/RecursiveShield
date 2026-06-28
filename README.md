@@ -56,6 +56,21 @@ python scripts/capture_demo_stub.py
 }
 ```
 
+`/classify-payload` accepts A's full `GuardrailHookPayload` shape:
+
+```json
+{
+  "run_id": "run_l1",
+  "audio_path": "artifacts/audio/poisoned.wav",
+  "screenshot_path": "artifacts/screens/order.png",
+  "transcript_window": "recent transcript text",
+  "proposed_action": {"tool": "confirm_order", "args": {}},
+  "policy": {"raw_text": "max 5%", "max_position_pct": 5},
+  "recent_actions": [],
+  "metadata": {}
+}
+```
+
 ## GPU training box
 
 On Lightning AI / Colab GPU:

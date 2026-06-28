@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from agentimmune.contracts import Constraint, GuardrailDecision, ToolAction
-from agentimmune.guardrail import StubGuardrail
+from agentimmune.contracts import Constraint, GuardrailDecision, GuardrailHookPayload, ToolAction
+from agentimmune.guardrail import StubGuardrail, classify_payload
 
 
 app = FastAPI(title="AgentImmune Guardrail", version="0.1.0")
@@ -31,3 +31,8 @@ async def classify_endpoint(payload: ClassifyRequest) -> GuardrailDecision:
         action=payload.action,
         policy=payload.policy,
     )
+
+
+@app.post("/classify-payload", response_model=GuardrailDecision)
+async def classify_payload_endpoint(payload: GuardrailHookPayload) -> GuardrailDecision:
+    return await classify_payload(payload)
