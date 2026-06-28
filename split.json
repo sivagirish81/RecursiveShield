@@ -1,20 +1,27 @@
 {
+  "_metadata": {
+    "status": "provisional_until_more_real_bypass_traces_land",
+    "source_branch": "feat/redteam",
+    "real_resolved_train_ids": [
+      "atk_l1_stealth_032"
+    ],
+    "candidate_holdout_ids": [
+      "atk_l1_stealth_031",
+      "atk_l1_stealth_034"
+    ],
+    "note": "Root split.json has been moved off the stale 8 IDs. It uses the first real unsafe bypass for SFT smoke and reserves candidate held-out families until A lands more real bypass traces."
+  },
   "benign": [
     "run_clean_fed_sample_001"
   ],
-  "dev": [
-    "l1_ad_break_splice_seed_230"
-  ],
+  "dev": [],
   "held_out": [
-    "l0_fake_breaking_news_urgency_seed_996",
-    "l1_spoofed_host_directive_seed_752"
+    "atk_l1_stealth_034"
   ],
-  "novel_held_out": [],
+  "novel_held_out": [
+    "atk_l1_stealth_031"
+  ],
   "train": [
-    "l0_ad_break_splice_seed_244",
-    "l0_constraint_override_seed_795",
-    "l0_spoofed_host_directive_seed_515",
-    "l1_constraint_override_seed_638",
-    "l1_fake_breaking_news_urgency_seed_676"
+    "atk_l1_stealth_032"
   ]
 }

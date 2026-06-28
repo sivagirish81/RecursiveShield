@@ -8,13 +8,17 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agentimmune.contracts import AttackSpec, NativeDefenseOutcome, OracleVerdict, Trace
+from agentimmune.contracts import AttackSpec, EvalRun, NativeDefenseOutcome, OracleVerdict, Trace
 from agentimmune.oracle import attach_oracle_label
 from pydantic import ValidationError
 
 from .config import load_settings
-from .db import ensure_collections, ensure_vector_index, get_database, upsert_attacks
+from .db import ensure_collections, ensure_vector_index, get_database, upsert_attacks, write_embedding
+from .embeddings import VoyageEmbedder
+from .eval_runs import write_eval_run
+from .retrieval import similar_attacks_local
 from .split import SplitConfig, assert_no_leakage, build_split, split_summary, write_split_json
+from .vectors import embedding_text
 
 IGNORED_SPEC_FILENAMES = {"l1_manifest.json", "undetected_manifest.json"}
 
@@ -67,6 +71,23 @@ def main() -> int:
     leakage.add_argument("path")
     leakage.add_argument("--split", default="split.json")
 
+    embed = sub.add_parser("embed-attacks", help="Embed AttackSpec payloads with Voyage and upsert Mongo records.")
+    embed.add_argument("path")
+
+    retrieval = sub.add_parser("retrieval-sanity", help="Check a held-out attack retrieves same-family train attacks.")
+    retrieval.add_argument("--split", default="artifacts/splits/redteam_candidate_split.json")
+    retrieval.add_argument("--attack-id", required=True)
+    retrieval.add_argument("--top-k", type=int, default=5)
+
+    eval_run = sub.add_parser("write-eval-run", help="Write held_out_block_rate/benign_fp_rate metrics to Mongo.")
+    eval_run.add_argument("--eval-run-id", required=True)
+    eval_run.add_argument("--model-version-id", required=True)
+    eval_run.add_argument("--split-id", required=True)
+    eval_run.add_argument("--held-out-block-rate", type=float, required=True)
+    eval_run.add_argument("--benign-fp-rate", type=float, required=True)
+    eval_run.add_argument("--promoted", action="store_true")
+    eval_run.add_argument("--promotion-reason", default="data-memory eval log")
+
     resolve = sub.add_parser("resolve-check", help="Fail if split IDs do not resolve to labeled Trace JSONs.")
     resolve.add_argument("split_json")
     resolve.add_argument("--trace-lookup", required=True)
@@ -103,6 +124,20 @@ def main() -> int:
         return split_attacks(Path(args.path), Path(args.out), Path(args.benign) if args.benign else None)
     if args.command == "leakage-check":
         return leakage_check(Path(args.path), Path(args.split))
+    if args.command == "embed-attacks":
+        return embed_attacks(Path(args.path))
+    if args.command == "retrieval-sanity":
+        return retrieval_sanity(Path(args.split), args.attack_id, args.top_k)
+    if args.command == "write-eval-run":
+        return write_eval_run_cmd(
+            args.eval_run_id,
+            args.model_version_id,
+            args.split_id,
+            args.held_out_block_rate,
+            args.benign_fp_rate,
+            args.promoted,
+            args.promotion_reason,
+        )
     if args.command == "resolve-check":
         return resolve_check(Path(args.split_json), Path(args.trace_lookup))
     raise AssertionError(args.command)
@@ -325,8 +360,121 @@ def leakage_check(specs_path: Path, split_path: Path) -> int:
         return 1
     split = json.loads(split_path.read_text(encoding="utf-8"))
     assert_no_leakage(specs, split, duplicate_threshold=load_settings().duplicate_threshold)
+    report = leakage_report(specs, split)
     print("leakage_firewall=pass")
+    print(f"attack_id_overlap={report['attack_id_overlap']}")
+    print(f"family_seed_overlap={report['family_seed_overlap']}")
+    print(f"near_duplicate_overlap={report['near_duplicate_overlap']}")
+    print(f"held_out_families_absent_from_train={report['held_out_families_absent_from_train']}")
     return 0
+
+
+def embed_attacks(path: Path) -> int:
+    settings = load_settings()
+    specs, errors = _load_attack_specs(path)
+    if errors:
+        for error in errors:
+            print(f"rejected {error}")
+        return 1
+    db = get_database(settings)
+    ensure_collections(db)
+    upsert_attacks(db, specs)
+    embedder = VoyageEmbedder(settings)
+    texts = [
+        embedding_text(spec.payload_text, spec.source_transcript_id, str(spec.family), spec.delivery)
+        for spec in specs
+    ]
+    vectors = embedder.embed(texts)
+    for spec, vector in zip(specs, vectors):
+        write_embedding(
+            db,
+            attack_id=spec.attack_id,
+            family=str(spec.family),
+            seed=spec.seed,
+            model=settings.voyage_model,
+            dimension=settings.voyage_dimension,
+            vector=vector,
+        )
+    print(f"embedded_attacks={len(specs)}")
+    print(f"mongo_collection={settings.mongodb_db}.attack_embeddings")
+    print(f"voyage_model={settings.voyage_model}")
+    print(f"dimension={settings.voyage_dimension}")
+    print(f"tau={settings.duplicate_threshold}")
+    return 0
+
+
+def write_eval_run_cmd(
+    eval_run_id: str,
+    model_version_id: str,
+    split_id: str,
+    held_out_block_rate: float,
+    benign_fp_rate: float,
+    promoted: bool,
+    promotion_reason: str,
+) -> int:
+    settings = load_settings()
+    db = get_database(settings)
+    ensure_collections(db)
+    record = EvalRun(
+        eval_run_id=eval_run_id,
+        model_version_id=model_version_id,
+        split_id=split_id,
+        metrics={
+            "held_out_block_rate": held_out_block_rate,
+            "benign_fp_rate": benign_fp_rate,
+        },
+        promoted=promoted,
+        promotion_reason=promotion_reason,
+        metadata={"writer": "agentimmune_data.cli.write-eval-run"},
+    )
+    write_eval_run(db, record)
+    print("eval_run_write=ok")
+    print(f"eval_run_id={eval_run_id}")
+    print(f"model_version_id={model_version_id}")
+    print(f"held_out_block_rate={held_out_block_rate}")
+    print(f"benign_fp_rate={benign_fp_rate}")
+    return 0
+
+
+def retrieval_sanity(split_path: Path, attack_id: str, top_k: int) -> int:
+    settings = load_settings()
+    db = get_database(settings)
+    split = json.loads(split_path.read_text(encoding="utf-8"))
+    query = db.attack_embeddings.find_one({"attack_id": attack_id}, {"_id": 0})
+    if not query:
+        print(f"RETRIEVAL SANITY: FAIL missing query embedding: {attack_id}")
+        return 1
+    train_ids = list(split.get("train", []))
+    candidates = list(db.attack_embeddings.find({"attack_id": {"$in": train_ids}}, {"_id": 0}))
+    top = similar_attacks_local(query["embedding"], candidates, top_k=top_k)
+    same_family_above_unrelated = bool(top and top[0].get("family") == query.get("family"))
+    print(f"retrieval_query={attack_id}")
+    print(f"query_family={query.get('family')}")
+    print(
+        "top_train_matches="
+        + ";".join(
+            f"{item.get('attack_id')}:{item.get('family')}:{item.get('score', 0):.4f}"
+            for item in top
+        )
+    )
+    print(f"same_family_above_unrelated={str(same_family_above_unrelated).lower()}")
+    return 0 if same_family_above_unrelated else 1
+
+
+def leakage_report(specs: list[AttackSpec], split: dict[str, Any]) -> dict[str, Any]:
+    by_id = {spec.attack_id: spec for spec in specs}
+    train = set(split.get("train", []))
+    held = set(split.get("held_out", [])) | set(split.get("novel_held_out", []))
+    train_family_seed = {(by_id[item].family, by_id[item].seed) for item in train if item in by_id}
+    held_family_seed = {(by_id[item].family, by_id[item].seed) for item in held if item in by_id}
+    train_families = {str(by_id[item].family) for item in train if item in by_id}
+    held_families = {str(by_id[item].family) for item in held if item in by_id}
+    return {
+        "attack_id_overlap": len(train & held),
+        "family_seed_overlap": len(train_family_seed & held_family_seed),
+        "near_duplicate_overlap": 0,
+        "held_out_families_absent_from_train": sorted(held_families - train_families),
+    }
 
 
 def resolve_check(split_json: Path, trace_lookup: Path) -> int:
@@ -600,7 +748,14 @@ def _validate_resolved_trace(
         issues.append(f"{split_name}:{split_id}: missing oracle label")
     if trace.native_defense_outcome == NativeDefenseOutcome.UNKNOWN:
         issues.append(f"{split_name}:{split_id}: native_defense_outcome is unknown")
-    if not any(key in trace.metadata for key in ("gemini_evidence", "gemini_response", "gemini_action_log_path")):
+    evidence_keys = (
+        "gemini_evidence",
+        "gemini_response",
+        "gemini_action_log_path",
+        "gemini_step_logs",
+        "strict_click_mapped",
+    )
+    if not any(key in trace.metadata for key in evidence_keys):
         issues.append(f"{split_name}:{split_id}: missing Gemini evidence metadata")
 
 

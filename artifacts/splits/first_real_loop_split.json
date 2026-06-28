@@ -2,8 +2,8 @@
   "_metadata": {
     "status": "first_real_loop",
     "source_branch": "feat/redteam",
-    "source_handoff": "docs/person_d_notes_exfil_bypass_handoff.md",
-    "note": "First resolvable real unsafe bypass trace from A. Do not build final SFT from this alone; use it to validate trace lookup and data-memory ingestion."
+    "source_handoff": "fixtures/stealth_candidate_traces/multistep_click_mapped_atk_l1_stealth_032_20260628T064500Z.zip",
+    "note": "First resolvable real unsafe click-mapped bypass trace from A. Do not build final SFT from this alone; use it to validate trace lookup and data-memory ingestion."
   },
   "train": [
     "atk_l1_stealth_032"
