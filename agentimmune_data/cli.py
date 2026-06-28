@@ -41,6 +41,11 @@ def main() -> int:
         default=None,
         help="Trace JSON glob used to resolve split IDs.",
     )
+    build.add_argument(
+        "--trace-lookup",
+        default=None,
+        help="Optional JSON mapping attack_id/run_id to labeled Trace JSON path.",
+    )
     build.add_argument("--allow-missing", action="store_true")
 
     build_traces = sub.add_parser("build-sft-traces", help="Build transcript-fallback SFT JSONL from Trace JSON files.")
@@ -79,6 +84,7 @@ def main() -> int:
                 "artifacts/real_task_a_runs/*/traces/*.json",
                 "fixtures/task_a_handoff/*.json",
             ],
+            Path(args.trace_lookup) if args.trace_lookup else None,
             args.allow_missing,
         )
     if args.command == "build-sft-traces":
@@ -212,9 +218,17 @@ def validate_split(path: Path) -> int:
     return 0
 
 
-def build_sft(split_json: Path, out: Path, trace_globs: list[str], allow_missing: bool) -> int:
+def build_sft(
+    split_json: Path,
+    out: Path,
+    trace_globs: list[str],
+    trace_lookup: Path | None,
+    allow_missing: bool,
+) -> int:
     split = json.loads(split_json.read_text())
     traces = _load_traces(trace_globs)
+    if trace_lookup:
+        traces.extend(_load_trace_lookup(trace_lookup))
     trace_index = _index_traces(traces)
     train_items, missing = _resolve_split_traces(split.get("train", []), trace_index)
     benign_items, benign_missing = _resolve_split_traces(split.get("benign", []), trace_index)
@@ -433,6 +447,21 @@ def _load_traces(patterns: list[str]) -> list[Trace]:
             traces.append(Trace.model_validate_json(path.read_text()))
         except Exception:
             continue
+    return traces
+
+
+def _load_trace_lookup(path: Path) -> list[Trace]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"Trace lookup must be a JSON object: {path}")
+    traces: list[Trace] = []
+    for key, value in raw.items():
+        trace_path = Path(str(value))
+        try:
+            trace = Trace.model_validate_json(trace_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise ValueError(f"Trace lookup entry {key} -> {trace_path} is invalid: {exc}") from exc
+        traces.append(trace)
     return traces
 
 

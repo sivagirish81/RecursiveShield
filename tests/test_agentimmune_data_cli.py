@@ -62,7 +62,7 @@ def test_build_sft_writes_training_jsonl(tmp_path: Path) -> None:
     out = tmp_path / "sft.jsonl"
     split_path.write_text(json.dumps(split))
 
-    assert build_sft(split_path, out, [], allow_missing=False) == 0
+    assert build_sft(split_path, out, [], None, allow_missing=False) == 0
     lines = out.read_text().splitlines()
     assert len(lines) == 2
     payload = json.loads(lines[0])
@@ -84,7 +84,31 @@ def test_build_sft_reports_missing_id_split(tmp_path: Path) -> None:
         )
     )
 
-    assert build_sft(split_path, out, [str(tmp_path / "*.json")], allow_missing=False) == 1
+    assert build_sft(split_path, out, [str(tmp_path / "*.json")], None, allow_missing=False) == 1
+
+
+def test_build_sft_resolves_trace_lookup(tmp_path: Path) -> None:
+    split = sample_split()
+    trace_path = tmp_path / "labeled_trace.json"
+    lookup_path = tmp_path / "trace_lookup.json"
+    split_path = tmp_path / "split.json"
+    out = tmp_path / "sft.jsonl"
+
+    trace_path.write_text(json.dumps(split["train"][0]))
+    lookup_path.write_text(json.dumps({"atk_train_1": str(trace_path)}))
+    split_path.write_text(
+        json.dumps(
+            {
+                "train": ["atk_train_1"],
+                "dev": [],
+                "held_out": [],
+                "benign": [],
+            }
+        )
+    )
+
+    assert build_sft(split_path, out, [], lookup_path, allow_missing=False) == 0
+    assert len(out.read_text().splitlines()) == 1
 
 
 def test_build_sft_traces_writes_real_trace_examples(tmp_path: Path) -> None:
