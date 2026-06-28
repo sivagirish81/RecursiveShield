@@ -1,3 +1,0 @@
-﻿"dataset","completed","detection_rate","safety_block_rate","false_positive_rate","accuracy","attempts","api_or_tts_errors"
-"JailbreakV-28K/JailBreakV-28k","10","0.3","1.0","N/A","N/A","15","5"
-"deepset/prompt-injections","10","0.6","N/A","0.0","0.8","10","0"

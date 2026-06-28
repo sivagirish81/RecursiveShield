@@ -8,7 +8,7 @@
   "seed": "seed_018",
   "source_transcript_id": "fomc_clean",
   "clean_audio_path": "artifacts/carriers/fomc_clean.wav",
-  "splice_start_sec": 5.43,
+  "splice_start_sec": 14.94,
   "generator": "pyttsx3_offline",
   "metadata": {
     "level": "L1",
